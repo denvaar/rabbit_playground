@@ -2,18 +2,25 @@ defmodule Playground.EventConsumer do
   use Broadway
 
   def start_link(opts) do
-    queue = Keyword.get(opts, :queue)
-    topics = Keyword.get(opts, :topics)
+    subscriber = Keyword.get(opts, :subscriber)
+    org_id = Keyword.get(opts, :organization_id)
+    integration_name = Keyword.get(opts, :integration_name)
 
-    bindings =
-      Enum.map(topics, fn topic ->
-        {
-          "playground.events.x",
-          [
-            routing_key: topic
+    queue = "#{subscriber}_#{org_id}_#{integration_name}"
+
+    bindings = [
+      {
+        "playground.events.x",
+        [
+          arguments: [
+            {"x-match", "all"},
+            {"organization_id", org_id},
+            {"subscriber", subscriber},
+            {"integration_name", integration_name}
           ]
-        }
-      end)
+        ]
+      }
+    ]
 
     Broadway.start_link(__MODULE__,
       name: {:via, Registry, {:queue_registry, queue}},
@@ -50,7 +57,7 @@ defmodule Playground.EventConsumer do
     AMQP.Exchange.declare(
       amqp_channel,
       "playground.events.x",
-      :topic,
+      :headers,
       durable: true
     )
   end
